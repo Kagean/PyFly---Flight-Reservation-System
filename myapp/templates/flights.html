@@ -1,0 +1,319 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyFly - Uçuş Arama</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css?family=Inter&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        input[type="range"] { accent-color: #FF6B35; }
+        select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+    </style>
+</head>
+
+<body class="bg-[#FAFAFA]">
+
+    <header class="bg-white border-b border-black/10 sticky top-0 z-50">
+        <div class="max-w-[1440px] mx-auto px-8 py-6 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" style="text-decoration: none;">
+                <img src="{% static 'images/image-5.png' %}" class="w-8 h-8 rounded-lg">
+                <span class="font-semibold text-lg text-[#515151] tracking-[-0.4px]">PyFly</span>
+            </a>
+            <nav class="flex gap-8 font-medium text-black/55">
+                <a href="{% url 'flight_search' %}" class="hover:text-black transition-colors">Uçuşlar</a>
+                <a href="/ticket/" class="hover:text-black transition-colors">Biletlerim</a>
+                <a href="/bagaj/" class="hover:text-black transition-colors">Bagaj</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="bg-white py-8 border-b border-black/5">
+        <div class="max-w-[1440px] mx-auto px-8">
+            <form method="GET" action="{% url 'flight_search' %}" class="bg-white border border-black/10 rounded-xl p-6 shadow-sm flex items-center gap-4">
+                
+                <div class="flex-1 flex items-center gap-2 border-r pr-4">
+                    <i data-lucide="plane" class="w-5 h-5 text-black/40"></i>
+                    <select name="origin" class="w-full bg-transparent outline-none font-medium text-black cursor-pointer appearance-none">
+                        <option value="">Nereden?</option>
+                        {% for airport in airports %}
+                            <option value="{{ airport.id }}" {% if request.GET.origin == airport.id|stringformat:"i" %}selected{% endif %}>
+                                {{ airport.city }} ({{ airport.code }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex-1 flex items-center gap-2 border-r pr-4">
+                    <i data-lucide="plane" class="w-5 h-5 text-black/40 rotate-90"></i>
+                    <select name="destination" class="w-full bg-transparent outline-none font-medium text-black cursor-pointer appearance-none">
+                        <option value="">Nereye?</option>
+                        {% for airport in airports %}
+                            <option value="{{ airport.id }}" {% if request.GET.destination == airport.id|stringformat:"i" %}selected{% endif %}>
+                                {{ airport.city }} ({{ airport.code }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex-1 border-r pr-4">
+                    <input type="date" name="departure_date" value="{{ request.GET.departure_date|default:'2025-01-15' }}" class="w-full outline-none font-medium bg-transparent">
+                </div>
+
+                <div class="flex-1 border-r pr-4">
+                    <input type="date" name="return_date" value="{{ request.GET.return_date|default:'2025-01-22' }}" class="w-full outline-none font-medium bg-transparent">
+                </div>
+                
+                <div class="flex-1">
+                    <select id="passenger-select" name="passengers" onchange="updatePrices(this.value)" class="w-full bg-transparent outline-none font-medium text-black cursor-pointer appearance-none">
+                        {% for i in "123456789" %}
+                            <option value="{{ forloop.counter }}" {% if request.GET.passengers == forloop.counter|stringformat:"i" %}selected{% endif %}>{{ forloop.counter }} Yolcu</option>
+                        {% endfor %}
+                        <option value="10" {% if request.GET.passengers == "10" %}selected{% endif %}>10 Yolcu</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="bg-black text-white px-8 py-3 rounded-xl flex items-center gap-2 hover:bg-black/90 transition-all">
+                    <i data-lucide="search" class="search w-5 h-5"></i> Ara
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <main class="max-w-[1440px] mx-auto px-8 py-8 flex gap-8">
+        <aside class="w-[280px] space-y-8">
+            <div>
+                <div class="flex items-center gap-2 pb-4 border-b mb-4">
+                    <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
+                    <h3 class="font-semibold text-black">Filtreler</h3>
+                </div>
+                <h4 class="font-semibold mb-3 text-sm text-black">Fiyat Aralığı</h4>
+                <input type="range" id="price-slider" min="0" max="10000" step="100" value="{{ request.GET.price|default:5000 }}" class="w-full mb-2">
+                <div class="flex justify-between text-xs text-black/50">
+                    <span>₺0</span>
+                    <span id="price-label">₺{{ request.GET.price|default:5000 }}</span>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="font-semibold mb-3 text-sm text-black">Havayolları</h4>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-black transition-colors">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-black/20 accent-black"> Turkish Airlines
+                    </label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-black transition-colors">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-black/20 accent-black"> Pegasus Airlines
+                    </label>
+                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-black transition-colors">
+                        <input type="checkbox" checked class="w-4 h-4 rounded border-black/20 accent-black"> SunExpress
+                    </label>
+                </div>
+            </div>
+
+            <div>
+                <h4 class="font-semibold mb-3 text-sm text-black">Kalkış Saati</h4>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="p-2 border border-black/10 rounded-lg text-left hover:border-black/30 hover:bg-black/5 transition-all">
+                        <div class="text-xs font-bold text-black">Sabah</div>
+                        <div class="text-[10px] text-black/40">06:00-12:00</div>
+                    </button>
+                    <button class="p-2 border border-black/10 rounded-lg text-left hover:border-black/30 hover:bg-black/5 transition-all">
+                        <div class="text-xs font-bold text-black">Öğlen</div>
+                        <div class="text-[10px] text-black/40">12:00-18:00</div>
+                    </button>
+                    <button class="p-2 border border-black/10 rounded-lg text-left hover:border-black/30 hover:border-black/5 transition-all">
+                        <div class="text-xs font-bold text-black">Akşam</div>
+                        <div class="text-[10px] text-black/40">18:00-00:00</div>
+                    </button>
+                    <button class="p-2 border border-black/10 rounded-lg text-left hover:border-black/30 hover:border-black/5 transition-all">
+                        <div class="text-xs font-bold text-black">Gece</div>
+                        <div class="text-[10px] text-black/40">00:00-06:00</div>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <div class="flex-1 space-y-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-black">
+                    {% if request.GET.origin and request.GET.destination %}
+                        Sonuçlar Listeleniyor
+                    {% else %}
+                        Istanbul → Antalya
+                    {% endif %}
+                </h2>
+                <select id="sort-select" onchange="fetchUpdatedFlights()" class="px-4 py-2 border border-black/10 rounded-xl bg-white font-medium text-black cursor-pointer hover:border-black/20 transition-colors outline-none appearance-none">
+                    <option value="price" {% if request.GET.sort == 'price' %}selected{% endif %}>En Uygun Fiyat</option>
+                    <option value="departure" {% if request.GET.sort == 'departure' %}selected{% endif %}>En Erken Kalkış</option>
+                    <option value="duration" {% if request.GET.sort == 'duration' %}selected{% endif %}>En Kısa Süre</option>
+                </select>
+            </div>
+
+            <div id="flight-results-container" class="space-y-4">
+                {% for flight in flights %}
+                <div class="bg-white border border-black/10 rounded-xl p-6 flex items-center justify-between hover:shadow-md transition-all flight-card" data-base-price="{{ flight.price }}">
+                    <div class="flex items-center gap-4 w-1/4">
+                        <img src="{% static 'images/image-35.png' %}" class="w-14 h-14 rounded-lg object-contain border p-1" alt="Havayolu">
+                        <div>
+                            <div class="font-bold text-black">{{ flight.flight_number }}</div>
+                            <div class="text-xs text-black/40">{{ flight.airline }}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6 flex-1 justify-center">
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-black">{{ flight.departure_time|date:"H:i" }}</div>
+                            <div class="text-xs text-black/40">{{ flight.origin.code }}</div>
+                        </div>
+                        <div class="flex flex-col items-center gap-1">
+                            <div class="flex items-center gap-2 opacity-20">
+                                <div class="w-1 h-1 bg-black rounded-full"></div>
+                                <div class="w-16 h-[1px] bg-black"></div>
+                                <i data-lucide="plane" class="w-3 h-3"></i>
+                            </div>
+                            <div class="text-[10px] text-black/40 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> {{ flight.get_duration }}</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-black">{{ flight.arrival_time|date:"H:i" }}</div>
+                            <div class="text-xs text-black/40">{{ flight.destination.code }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-4 w-1/4 justify-end">
+                        <div class="text-right mr-4">
+                            <div class="text-[10px] text-black/40">Uçuş Fiyatı</div>
+                            <div class="text-2xl font-bold text-black total-price-text">₺{{ flight.total_price }}</div>
+                        </div>
+                        
+                        <a href="{% url 'create_ticket' flight.id %}?passengers={{ passenger_count }}" 
+                           class="bg-black text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-black/80 transition-all text-center select-btn">
+                            Seç
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                    <p class="text-center py-20 text-black/50 font-medium">Aradığınız kriterlere uygun uçuş bulunamadı.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white border-t border-black/5 pt-16 pb-24 mt-12">
+        <div class="max-w-[1440px] mx-auto px-8">
+            <div class="max-w-xl">
+                <h3 class="text-xl font-bold text-[#515151] mb-2">PyFly</h3>
+                <p class="text-sm text-black/50 leading-relaxed mb-8">
+                    PyFly Turizm Seyahat Acentası Türkiye Cumhuriyeti yasaları uyarınca faaliyet göstermektedir.
+                </p>
+                <div class="flex items-center gap-6">
+                    <a href="#" class="opacity-40 hover:opacity-100 transition-opacity"><i data-lucide="instagram" class="w-5 h-5"></i></a>
+                    <a href="#" class="opacity-40 hover:opacity-100 transition-opacity"><i data-lucide="linkedin" class="w-5 h-5"></i></a>
+                    <a href="#" class="opacity-40 hover:opacity-100 transition-opacity"><i data-lucide="twitter" class="w-5 h-5"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <script>
+        lucide.createIcons();
+
+        // Elementleri Tanımla
+        const sortSelect = document.getElementById('sort-select');
+        const priceSlider = document.getElementById('price-slider');
+        const priceLabel = document.getElementById('price-label');
+        const resultsContainer = document.getElementById('flight-results-container');
+
+        // Merkezi veri çekme fonksiyonu (Entegre Edildi)
+        function fetchUpdatedFlights() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Filtre ve Sıralama değerlerini URL'ye ekle
+            urlParams.set('price', priceSlider.value);
+            urlParams.set('sort', sortSelect.value);
+
+            fetch(`${window.location.pathname}?${urlParams.toString()}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                renderFlights(data.flights); // Listeyi anlık güncelle
+            });
+        }
+
+        // Olay Dinleyicileri (Entegre Edildi)
+        sortSelect.addEventListener('change', fetchUpdatedFlights);
+        priceSlider.addEventListener('input', function() {
+            priceLabel.innerText = `₺${this.value}`;
+            fetchUpdatedFlights();
+        });
+
+        // Uçuş Kartlarını Ekrana Basan Fonksiyon (Entegre Edildi)
+        function renderFlights(flights) {
+            if (flights.length === 0) {
+                resultsContainer.innerHTML = '<p class="text-center py-20 text-black/50 font-medium">Kriterlere uygun uçuş bulunamadı.</p>';
+                return;
+            }
+
+            const passengerCount = document.getElementById('passenger-select').value;
+
+            resultsContainer.innerHTML = flights.map(f => `
+                <div class="bg-white border border-black/10 rounded-xl p-6 flex items-center justify-between hover:shadow-md transition-all flight-card" data-base-price="${f.price}">
+                    <div class="flex items-center gap-4 w-1/4">
+                        <img src="{% static 'images/image-35.png' %}" class="w-14 h-14 rounded-lg object-contain border p-1">
+                        <div>
+                            <div class="font-bold text-black">${f.airline}</div>
+                            <div class="text-xs text-black/40">Zamanında</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-6 flex-1 justify-center text-center">
+                        <div>
+                            <div class="text-xl font-bold text-black">${f.departure}</div>
+                            <div class="text-xs text-black/40">${f.origin_code}</div>
+                        </div>
+                        <div class="flex flex-col items-center gap-1">
+                             <div class="flex items-center gap-2 opacity-20">
+                                <div class="w-1 h-1 bg-black rounded-full"></div>
+                                <div class="w-16 h-[1px] bg-black"></div>
+                                <i data-lucide="plane" class="w-3 h-3"></i>
+                            </div>
+                            <div class="text-[10px] text-black/40">${f.duration}</div>
+                        </div>
+                        <div>
+                            <div class="text-xl font-bold text-black">${f.arrival}</div>
+                            <div class="text-xs text-black/40">${f.dest_code}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 w-1/4 justify-end">
+                        <div class="text-right mr-4">
+                            <div class="text-[10px] text-black/40">Uçuş Fiyatı</div>
+                            <div class="text-2xl font-bold text-black total-price-text">₺${f.total_price.toFixed(2)}</div>
+                        </div>
+                        <a href="/create-ticket/${f.id}/?passengers=${passengerCount}" 
+                           class="bg-black text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-black/80 transition-all text-center select-btn">
+                            Seç
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+            
+            lucide.createIcons(); // İkonları tekrar yükle
+        }
+
+        // Yolcu sayısı değişince anlık fiyat güncelleme (Orijinal Fonksiyon)
+        function updatePrices(passengerCount) {
+            const flightCards = document.querySelectorAll('.flight-card');
+            flightCards.forEach(card => {
+                const basePrice = parseFloat(card.dataset.basePrice); 
+                const totalPriceElement = card.querySelector('.total-price-text');
+                const newTotal = basePrice * passengerCount;
+                totalPriceElement.innerText = `₺${newTotal.toFixed(2)}`;
+                const selectBtn = card.querySelector('.select-btn');
+                const baseUrl = selectBtn.href.split('?')[0];
+                selectBtn.href = `${baseUrl}?passengers=${passengerCount}`;
+            });
+        }
+    </script>
+</body>
+</html>
