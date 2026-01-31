@@ -39,13 +39,9 @@ PyFly provides a robust platform for users to search for flights, book tickets, 
 To run this project locally, follow these steps:
 
 1. **Clone the repository:**
-2. **Create a virtual environment:**
-python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-3. **Install dependencies:**
-pip install -r requirements.txt
+2. **Open Terminal:**
 4. **Apply database migrations:**
-python manage.py migrate
+python manage.py runserver
 5. **Run the server:**
 python manage.py runserver
 Access the app at http://127.0.0.1:8000/
